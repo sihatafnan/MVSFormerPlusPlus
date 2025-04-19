@@ -2,6 +2,6 @@ echo Auditorium > /content/MVSFormerPlusPlus/lists/tanksandtemples/advanced.txt 
  --testpath /content/drive/MyDrive/MVS/tankandtemples/advanced --testlist /content/MVSFormerPlusPlus/lists/tanksandtemples/advanced.txt \
  --config /content/MVSFormerPlusPlus/config/mvsformer++.json \
  --resume /content/drive/MyDrive/MVS/MVSFormer++/model_best.pth    --outdir /content/drive/MyDrive/MVS/MVSFormer++/Outputs  \
- --interval_scale 1.06 --num_view 20 --fusion_view 15 --numdepth 192 --max_h 1088 --max_w 1920 --filter_method dpcd \
+ --interval_scale 1.06 --num_view 5 --fusion_view 5 --numdepth 192 --max_h 864 --max_w 1152 --filter_method dpcd \
  --disp_threshold 0.1   --conf_choose mean --conf 0.3
 
