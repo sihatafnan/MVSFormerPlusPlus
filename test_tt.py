@@ -219,7 +219,7 @@ def save_depth(testlist, config):
     model = init_model(config)
 
     print('Loading checkpoint: {} ...'.format(config.resume))
-    checkpoint = torch.load(str(config.resume))
+    checkpoint = torch.load(str(config.resume), weights_only=False)
     state_dict = checkpoint['state_dict']
     new_state_dict = {}
     for key, val in state_dict.items():
@@ -257,7 +257,7 @@ def save_depth(testlist, config):
             B, V, _, H, W = imgs.shape
             depth_interval = sample_cuda['depth_values'][:, 1] - sample_cuda['depth_values'][:, 0]
             filenames = sample["filename"]
-            with torch.cuda.amp.autocast(dtype=torch.bfloat16):  # dtype=torch.bfloat16
+            with torch.cuda.amp.autocast(dtype=torch.float16):  # dtype=torch.bfloat16
                 outputs = model.forward(imgs, cam_params, sample_cuda['depth_values'], tmp=tmp)
             torch.cuda.synchronize()
 
