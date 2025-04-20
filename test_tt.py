@@ -102,6 +102,8 @@ Interval_Scale = args.interval_scale
 print("***********Interval_Scale**********\n", Interval_Scale)
 
 args.outdir = args.outdir + f'_{args.max_w}x{args.max_h}'
+if args.attack:
+  args.outdir += "_avg_jitter"
 os.makedirs(args.outdir, exist_ok=True)
 
 
@@ -176,49 +178,48 @@ def write_cam(file, cam, depth_range):
 
     f.close()
 
-
 def perturb_ref_camera(sample_cuda):
-    # print("Camera before perturbation (extrinsics):")
-    extrinsic = sample_cuda["proj_matrices"]["stage4"][0, 0, 0]  # shape: (4, 4)
-    # print(extrinsic)
+    # print("Camera before perturbation (ref and src extrinsics):")
+    extrinsics = sample_cuda["proj_matrices"]["stage4"][0, :, 0]  # All extrinsics in this batch
+    # print(extrinsics)
 
-    # Apply translation perturbation
-    extrinsic[0, 3] += 0.0005
-    extrinsic[1, 3] -= 0.001
-    extrinsic[2, 3] += 0.0012
+    for i in range(extrinsics.shape[0]):
+        extrinsic = extrinsics[i]
+        extrinsic[0, 3] += 0.0005
+        extrinsic[1, 3] -= 0.001
+        extrinsic[2, 3] += 0.0012
 
-    # Rotation deltas
-    d_roll = torch.tensor(0.01, dtype=torch.float32, device=extrinsic.device)
-    d_pitch = torch.tensor(-0.02, dtype=torch.float32, device=extrinsic.device)
-    d_yaw = torch.tensor(0.015, dtype=torch.float32, device=extrinsic.device)
+        d_roll = torch.tensor(0.01, dtype=torch.float32, device=extrinsic.device)
+        d_pitch = torch.tensor(-0.02, dtype=torch.float32, device=extrinsic.device)
+        d_yaw = torch.tensor(0.015, dtype=torch.float32, device=extrinsic.device)
 
-    Rx = torch.tensor([
-        [1, 0, 0],
-        [0, torch.cos(d_roll), -torch.sin(d_roll)],
-        [0, torch.sin(d_roll), torch.cos(d_roll)]
-    ], dtype=torch.float32, device=extrinsic.device)
+        Rx = torch.tensor([
+            [1, 0, 0],
+            [0, torch.cos(d_roll), -torch.sin(d_roll)],
+            [0, torch.sin(d_roll), torch.cos(d_roll)]
+        ], dtype=torch.float32, device=extrinsic.device)
 
-    Ry = torch.tensor([
-        [torch.cos(d_pitch), 0, torch.sin(d_pitch)],
-        [0, 1, 0],
-        [-torch.sin(d_pitch), 0, torch.cos(d_pitch)]
-    ], dtype=torch.float32, device=extrinsic.device)
+        Ry = torch.tensor([
+            [torch.cos(d_pitch), 0, torch.sin(d_pitch)],
+            [0, 1, 0],
+            [-torch.sin(d_pitch), 0, torch.cos(d_pitch)]
+        ], dtype=torch.float32, device=extrinsic.device)
 
-    Rz = torch.tensor([
-        [torch.cos(d_yaw), -torch.sin(d_yaw), 0],
-        [torch.sin(d_yaw), torch.cos(d_yaw), 0],
-        [0, 0, 1]
-    ], dtype=torch.float32, device=extrinsic.device)
+        Rz = torch.tensor([
+            [torch.cos(d_yaw), -torch.sin(d_yaw), 0],
+            [torch.sin(d_yaw), torch.cos(d_yaw), 0],
+            [0, 0, 1]
+        ], dtype=torch.float32, device=extrinsic.device)
 
-    R_delta = Rz @ Ry @ Rx
-    extrinsic[:3, :3] = R_delta @ extrinsic[:3, :3]
+        R_delta = Rz @ Ry @ Rx
+        extrinsic[:3, :3] = R_delta @ extrinsic[:3, :3]
+        sample_cuda["proj_matrices"]["stage4"][0, i, 0] = extrinsic
 
-    sample_cuda["proj_matrices"]["stage4"][0, 0, 0] = extrinsic
-
-    # print("Camera after perturbation (extrinsics):")
-    # print(sample_cuda["proj_matrices"]["stage4"][0, 0, 0])
+    # print("Camera after perturbation (ref and src extrinsics):")
+    # print(sample_cuda["proj_matrices"]["stage4"][0, :, 0])
 
     return sample_cuda
+
 
 def rm_data(testlist, outdir):
     for scan in tqdm(testlist):
@@ -296,7 +297,7 @@ def save_depth(testlist, config):
           
             if args.attack:
                 sample_cuda = perturb_ref_camera(sample_cuda)
-            
+            # break
             num_stage = 3 if stage3 else 4
             imgs, cam_params = sample_cuda["imgs"], sample_cuda["proj_matrices"]
             if args.dataset == 'dtu':
